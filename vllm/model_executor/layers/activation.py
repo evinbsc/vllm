@@ -11,7 +11,8 @@ from vllm.distributed import (divide, get_tensor_model_parallel_rank,
 from vllm.model_executor.custom_op import CustomOp
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.utils import set_weight_attrs
-
+#Added import statement
+from torch.export import export
 
 class SiluAndMul(CustomOp):
     """An activation function for SwiGLU.
@@ -46,6 +47,19 @@ class SiluAndMul(CustomOp):
         ops.silu_and_mul(out, x)
         return out
 
+#Added class
+class SiluAndMulExported:
+    def __init__(self):
+        super().__init__()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.saved_exported_program = torch.export.load('vllm/model_executor/layers/exported_program.pt2').module().to(self.device).half()
+        
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        # Move the input tensor to the same device and use half precision
+        x = x.to(self.device).half()
+        # Flatten the input tensor to match the expected input dimension for the saved exported program
+        x = x.view(x.size(0), -1)
+        return self.saved_exported_program(x)
 
 class GeluAndMul(CustomOp):
     """An activation function for GeGLU.

@@ -31,7 +31,8 @@ from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig, LoRAConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size)
-from vllm.model_executor.layers.activation import SiluAndMul
+#Added  import for SilAndMulExported
+from vllm.model_executor.layers.activation import SiluAndMulExported
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
                                                QKVParallelLinear,
@@ -50,7 +51,6 @@ from vllm.sequence import SamplerOutput
 from vllm.utils import is_hip, print_warning_once
 
 from .interfaces import SupportsLoRA
-
 
 class LlamaMLP(nn.Module):
 
@@ -75,14 +75,15 @@ class LlamaMLP(nn.Module):
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
-        self.act_fn = SiluAndMul()
+	#Changed to SiluAndMulExported()
+        self.act_fn = SiluAndMulExported()
 
     def forward(self, x):
         gate_up, _ = self.gate_up_proj(x)
         x = self.act_fn(gate_up)
         x, _ = self.down_proj(x)
         return x
-
+    
 
 class LlamaAttention(nn.Module):
 
