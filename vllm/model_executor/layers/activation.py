@@ -4,6 +4,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+from torch.export import export
 import torch.nn.functional as F
 
 from vllm.distributed import (divide, get_tensor_model_parallel_rank,
@@ -11,8 +12,6 @@ from vllm.distributed import (divide, get_tensor_model_parallel_rank,
 from vllm.model_executor.custom_op import CustomOp
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.utils import set_weight_attrs
-#Added import statement
-from torch.export import export
 
 class SiluAndMul(CustomOp):
     """An activation function for SwiGLU.
