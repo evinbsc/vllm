@@ -23,6 +23,7 @@
 """Inference-only LLaMA model compatible with HuggingFace weights."""
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import os
 import torch
 from torch import nn
 from transformers import LlamaConfig
@@ -31,8 +32,8 @@ from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig, LoRAConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size)
-#Added import for SilAndMulExported
-from vllm.model_executor.layers.activation import SiluAndMulExported
+from vllm.logger import init_logger
+from vllm.model_executor.layers.activation import SiluAndMul, SiluAndMulExported
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
                                                QKVParallelLinear,
@@ -51,6 +52,9 @@ from vllm.sequence import SamplerOutput
 from vllm.utils import is_hip, print_warning_once
 
 from .interfaces import SupportsLoRA
+
+logger = init_logger(__name__)
+
 
 class LlamaMLP(nn.Module):
 
@@ -75,8 +79,11 @@ class LlamaMLP(nn.Module):
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
-	    #Set act_fn to SiluAndMulExported()
-        self.act_fn = SiluAndMulExported()
+        # Set act_fn to SiluAndMulExported()
+        if os.environ.get("SILU_AND_MUL", "custom_ops") == "export":
+            logger.info("Using SiluAndMulExported for activation")
+            self.act_fn = SiluAndMulExported()
+        self.act_fn = SiluAndMul()
 
     def forward(self, x):
         gate_up, _ = self.gate_up_proj(x)

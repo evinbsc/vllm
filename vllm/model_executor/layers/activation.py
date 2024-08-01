@@ -1,5 +1,6 @@
 """Custom activation functions."""
 import math
+import os
 from typing import Optional
 
 import torch
@@ -9,9 +10,13 @@ import torch.nn.functional as F
 
 from vllm.distributed import (divide, get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size)
+from vllm.logger import init_logger
 from vllm.model_executor.custom_op import CustomOp
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.utils import set_weight_attrs
+
+logger = init_logger(__name__)
+
 
 class SiluAndMul(CustomOp):
     """An activation function for SwiGLU.
@@ -22,6 +27,14 @@ class SiluAndMul(CustomOp):
         x: (num_tokens, 2 * d) or (batch_size, seq_len, 2 * d)
         return: (num_tokens, d) or (batch_size, seq_len, d)
     """
+    def __init__(self):
+        super().__init__()
+        # Hack to profile SiluAndMul using PyTorch native ops
+        if os.environ.get("SILU_AND_MUL", "custom_ops") == "native":
+            logger.info("Using native PyTorch ops for SiluAndMul for activation")
+            self._forward_method = self.dispatch_forward()
+        else:
+            logger.info("Using vLLM SiluAndMul custom_ops for activation")
 
     def forward_native(self, x: torch.Tensor) -> torch.Tensor:
         """PyTorch-native implementation equivalent to forward()."""
@@ -66,11 +79,13 @@ class SiluAndMulExported(nn.Module):
         from importlib.resources import files
         self.saved_exported_silu_and_mul = torch.export.load(
             files('vllm.exported_artifacts').joinpath('silu_and_mul_exported.pt2'))
+        logger.info("Using `torch.export` SiluAndMulExported for activation")
         self.module = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward implementation for the SiluAndMulExported()"""
         if not self.module:
+            # This is a hack to avoid running into train() being called on the module during __init__
             self.module = self.saved_exported_silu_and_mul.module()
         return self.module(x)
 
