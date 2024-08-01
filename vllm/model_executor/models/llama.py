@@ -31,7 +31,7 @@ from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig, LoRAConfig
 from vllm.distributed import (get_tensor_model_parallel_rank,
                               get_tensor_model_parallel_world_size)
-#Added  import for SilAndMulExported
+#Added import for SilAndMulExported
 from vllm.model_executor.layers.activation import SiluAndMulExported
 from vllm.model_executor.layers.layernorm import RMSNorm
 from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
@@ -75,7 +75,7 @@ class LlamaMLP(nn.Module):
         if hidden_act != "silu":
             raise ValueError(f"Unsupported activation: {hidden_act}. "
                              "Only silu is supported for now.")
-	#Changed to SiluAndMulExported()
+	    #Set act_fn to SiluAndMulExported()
         self.act_fn = SiluAndMulExported()
 
     def forward(self, x):
