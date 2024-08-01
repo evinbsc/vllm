@@ -47,19 +47,33 @@ class SiluAndMul(CustomOp):
         ops.silu_and_mul(out, x)
         return out
 
-#Added class
-class SiluAndMulExported:
+#Added new class SiluAndMulExported()
+class SiluAndMulExported(nn.Module):
+    """A class for utilizing an exported version of the SiluAndMul model.
+    
+    This class loads and utilizes the SiluAndMul module that has been exported
+    using the `torch.export` functionality. 
+    
+    Attributes:
+        saved_exported_silu_and_mul: An instance of the `silu_and_mul_export_module` class loaded 
+                                from a file. This represents the serialized 
+                                computation graph of the model.
+        module: An instance of the model that is created from the exported program 
+                when it is first used.
+    """
+
     def __init__(self):
         super().__init__()
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.saved_exported_program = torch.export.load('vllm/model_executor/layers/exported_program.pt2').module().to(self.device).half()
-        
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        # Move the input tensor to the same device and use half precision
-        x = x.to(self.device).half()
-        # Flatten the input tensor to match the expected input dimension for the saved exported program
-        x = x.view(x.size(0), -1)
-        return self.saved_exported_program(x)
+        from importlib.resources import files
+        self.saved_exported_silu_and_mul = torch.export.load(
+            files('vllm.exported_artifacts').joinpath('silu_and_mul_exported.pt2'))
+        self.module = None
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward implementation for the SiluAndMulExported()"""
+        if not self.module:
+            self.module = self.saved_exported_silu_and_mul.module()
+        return self.module(x)
 
 class GeluAndMul(CustomOp):
     """An activation function for GeGLU.
